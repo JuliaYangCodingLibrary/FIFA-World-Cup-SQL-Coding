@@ -1,0 +1,87 @@
+SELECT
+     Year,
+	 Home_Team,
+	 Away_Team,
+	 home_score,
+	 away_score,
+	 ABS(home_score-away_score) AS score_difference
+FROM matches_1930_2022
+ORDER BY score_difference DESC
+LIMIT 10
+
+
+WITH Team_Score AS (
+     Select home_team as team, Sum(home_score) AS score
+	 from matches_1930_2022
+	 group by home_team
+	 union ALL
+	 select away_team as team, sum(away_score) as score
+	 from matches_1930_2022
+	 group by away_team )
+Select 
+      team,
+	  sum(score) as total_scores,
+	  dense_rank()over (order by SUM(score) DESC)
+from Team_Score
+group by team
+order by total_scores DESC
+LIMIT 10
+
+
+WITH team_matches AS (
+     SELECT home_team AS team,
+	 CASE WHEN home_score>away_score THEN 1 ELSE 0 END AS win
+	 FROM matches_1930_2022
+	 UNION ALL
+	 SELECT away_team AS team,
+	 CASE WHEN away_score>home_score THEN 1 ELSE 0 END AS win
+	 FROM matches_1930_2022 )
+SELECT team,
+       count (*) as total_matches,
+	   sum (win) as wins,
+	   ROUND(SUM(win)*100/count (*),2)AS win_percentage
+FROM team_matches
+GROUP BY team
+HAVING count (*)>=10
+ORDER BY win_percentage DESC
+LIMIT 10
+
+WITH year_score AS (
+     SELECT Year,
+	        sum (home_score+away_score) AS total_scores
+	 FROM matches_1930_2022
+	 GROUP BY Year )
+SELECT Year,
+       total_scores,
+	   SUM(total_scores) OVER (ORDER BY Year) AS Running_Total_Scores
+FROM year_score
+ORDER BY Year 
+
+
+WITH matchups AS (
+     SELECT 
+	       MIN (home_team, away_team) AS team_one,
+		   MAX (home_team, away_team) AS team_two
+	 FROM matches_1930_2022 )
+SELECT 
+      team_one,
+	  team_two,
+	  COUNT (*) AS time_played
+FROM matchups
+GROUP BY team_one, team_two
+ORDER BY time_played DESC
+LIMIT 10
+
+
+WITH yearly_attendance AS (
+     SELECT
+	       Year,
+		   SUM(Attendance) AS total_attendance
+	 FROM matches_1930_2022
+	 GROUP BY year )
+SELECT 
+      Year,
+	  total_attendance,
+	  LAG(total_attendance) OVER (ORDER BY Year)AS previous_attendance,
+	  total_attendance-LAG(total_attendance) OVER (ORDER BY Year) AS attendane_changed
+FROM yearly_attendance
